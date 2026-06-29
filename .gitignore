@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Demo output (contains screen captures)
+result*.jpg
+bench_shot.png
+bench_run.log

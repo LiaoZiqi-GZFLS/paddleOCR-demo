@@ -1,0 +1,11 @@
+# PaddleOCR 运行依赖（已在 conda 环境 paddleocr / Python 3.11 验证）
+#
+# GPU 版 paddle 需从官方源安装（含 CUDA 12.6 运行库），不要直接 pip install：
+#   pip install paddlepaddle-gpu==3.3.1 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+# 纯 CPU 可改为：
+#   pip install paddlepaddle==3.3.1
+
+paddleocr>=3.0.0
+mss>=9.0.0
+opencv-python>=4.5.0
+numpy
