@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A single-file CLI demo (`demo.py`) that screenshots the whole screen and runs PaddleOCR on it, printing recognized text + timings and saving an annotated image.
 
+Also includes `bench_all.py` / `ocr_worker.py` for benchmarking PaddleOCR, EasyOCR and RapidOCR across CPU/GPU.
+
 ## Environment
 
 - Runs in the conda env **`paddleocr`** (Python 3.11): `conda activate paddleocr`, or call the interpreter directly at `C:\Users\Ziqi\.conda\envs\paddleocr\python.exe`.
@@ -26,6 +28,8 @@ There are no automated tests; verification is running the demo and inspecting co
 - **Console UTF-8.** `sys.stdout.reconfigure(encoding="utf-8")` is forced at startup, otherwise Chinese output is mojibake on Windows when piped/redirected.
 - **mss returns BGRA**; the alpha channel is dropped to hand PaddleOCR a BGR array. `monitors[0]` is the all-screens bounding box; `monitors[1+]` are individual displays.
 - The doc-orientation / unwarping / textline-orientation sub-modules are disabled in the `PaddleOCR(...)` call to speed up and avoid extra model downloads.
+- **RapidOCR GPU needs CUDA/cuDNN DLLs on PATH.** `bench_all.py` prepends the RapidOCR env's `torch/lib` and `nvidia/cudnn/bin` to `PATH` for `rapidocr-gpu` workers. If you run `ocr_worker.py --engine rapidocr --device gpu` directly, set `PATH` manually or use the `paddleocr` env (which already bundles these DLLs via torch).
+- **RapidOCR result shape.** `RapidOCR(img)` returns `(results, elapse_list)`. `results` is a list of `[box, text, score]`; count lines with `len(results)`.
 - **PaddleOCR HPI / OpenVINO is not available on native Windows.** Enabling `enable_hpi=True` requires `ultra-infer`, which PaddleX only ships prebuilt for Linux. We intentionally do not benchmark `paddle-openvino` here.
 
 ## Result parsing (PaddleOCR 3.x)

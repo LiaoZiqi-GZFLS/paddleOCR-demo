@@ -1,4 +1,4 @@
-"""PaddleOCR vs EasyOCR，CPU / GPU 四种组合的速度对比（主程序）。
+"""PaddleOCR vs EasyOCR vs RapidOCR，CPU / GPU 六种组合的速度对比（主程序）。
 
 截一次屏并存成 PNG，所有组合用同一张图，最公平。每个组合在独立子进程中运行
 （见 ocr_worker.py）。
@@ -7,7 +7,11 @@
 各自的 conda 环境解释器：
   - PaddleOCR  → 纯 paddle 环境 `pdl`
   - EasyOCR    → 环境 `paddleocr`（含 torch）
-可用 --paddle-python / --easyocr-python 覆盖。
+  - RapidOCR   → 环境 `paddleocr`（ONNX Runtime，模型来自 PaddleOCR）
+可用 --paddle-python / --easyocr-python / --rapidocr-python 覆盖。
+
+RapidOCR 的 GPU 模式需要 onnxruntime-gpu 能加载 CUDA/cuDNN DLL；若使用 `paddleocr`
+环境运行，会把该环境下 `torch/lib` 和 `nvidia/cudnn/bin` 自动加入 PATH。
 """
 
 import argparse
@@ -31,6 +35,7 @@ WORKER = os.path.join(HERE, "ocr_worker.py")
 
 DEFAULT_PADDLE_PY = r"C:\Users\Ziqi\.conda\envs\pdl\python.exe"
 DEFAULT_EASYOCR_PY = r"C:\Users\Ziqi\.conda\envs\paddleocr\python.exe"
+DEFAULT_RAPIDOCR_PY = r"C:\Users\Ziqi\.conda\envs\paddleocr\python.exe"
 
 
 def grab_and_save(path: str) -> tuple:
@@ -41,10 +46,27 @@ def grab_and_save(path: str) -> tuple:
     return arr.shape[1], arr.shape[0]
 
 
+def _rapidocr_cuda_path_dirs(python_exe: str) -> list:
+    """为 RapidOCR GPU 提供 CUDA/cuDNN DLL 搜索路径。"""
+    base = os.path.dirname(python_exe)
+    sp = os.path.join(base, "Lib", "site-packages")
+    return [
+        os.path.join(sp, "torch", "lib"),
+        os.path.join(sp, "nvidia", "cudnn", "bin"),
+    ]
+
+
 def run_combo(python_exe: str, engine: str, device: str, image: str, rounds: int, warmup: int) -> dict | None:
     cmd = [python_exe, WORKER, "--engine", engine, "--device", device,
            "--image", image, "--rounds", str(rounds), "--warmup", str(warmup)]
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
+
+    # RapidOCR GPU 需要 torch/lib + nvidia/cudnn/bin 里的 DLL
+    if engine == "rapidocr" and device == "gpu":
+        extra_dirs = [p for p in _rapidocr_cuda_path_dirs(python_exe) if os.path.isdir(p)]
+        if extra_dirs:
+            env["PATH"] = os.pathsep.join(extra_dirs + [env.get("PATH", "")])
+
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                           errors="replace", env=env)
     for line in proc.stderr.splitlines():
@@ -59,20 +81,26 @@ def run_combo(python_exe: str, engine: str, device: str, image: str, rounds: int
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="PaddleOCR vs EasyOCR CPU/GPU 速度对比")
+    parser = argparse.ArgumentParser(description="PaddleOCR vs EasyOCR vs RapidOCR CPU/GPU 速度对比")
     parser.add_argument("--gpu-rounds", type=int, default=5, help="GPU 计时轮数（默认 5）")
     parser.add_argument("--cpu-rounds", type=int, default=2, help="CPU 计时轮数（默认 2）")
     parser.add_argument("--warmup", type=int, default=1, help="每组合预热轮数（默认 1）")
     parser.add_argument("--only", nargs="+",
-                        default=["paddle-gpu", "easyocr-gpu", "paddle-cpu", "easyocr-cpu"],
+                        default=["paddle-gpu", "easyocr-gpu", "rapidocr-gpu",
+                                 "paddle-cpu", "easyocr-cpu", "rapidocr-cpu"],
                         help="只跑指定组合")
     parser.add_argument("--image", default=os.path.join(HERE, "bench_shot.png"),
                         help="截图保存/复用路径")
     parser.add_argument("--paddle-python", default=DEFAULT_PADDLE_PY)
     parser.add_argument("--easyocr-python", default=DEFAULT_EASYOCR_PY)
+    parser.add_argument("--rapidocr-python", default=DEFAULT_RAPIDOCR_PY)
     args = parser.parse_args()
 
-    py_map = {"paddle": args.paddle_python, "easyocr": args.easyocr_python}
+    py_map = {
+        "paddle": args.paddle_python,
+        "easyocr": args.easyocr_python,
+        "rapidocr": args.rapidocr_python,
+    }
 
     w, h = grab_and_save(args.image)
     print(f"截图已保存：{args.image}（{w}x{h}），所有组合共用此图\n")

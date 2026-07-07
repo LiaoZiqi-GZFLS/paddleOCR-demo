@@ -2,6 +2,11 @@
 
 独立进程运行，避免 paddle 与 torch(easyocr) 在同一进程内 cuDNN 冲突。
 从磁盘读取固定图片，按指定引擎 / 设备运行，结果以 RESULT_JSON: 前缀打印到 stdout。
+
+支持的引擎：
+  - paddle     → PaddleOCR（paddlepaddle-gpu backend）
+  - easyocr    → EasyOCR（torch backend）
+  - rapidocr   → RapidOCR（ONNX Runtime backend，模型来自 PaddleOCR）
 """
 
 import argparse
@@ -16,7 +21,7 @@ from PIL import Image
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--engine", required=True, choices=["paddle", "easyocr"])
+    ap.add_argument("--engine", required=True, choices=["paddle", "easyocr", "rapidocr"])
     ap.add_argument("--device", required=True, choices=["cpu", "gpu"])
     ap.add_argument("--image", required=True)
     ap.add_argument("--rounds", type=int, default=3)
@@ -44,6 +49,19 @@ def main() -> None:
         init = time.perf_counter() - t0
         infer = lambda: ocr.predict(img_bgr)
         count = lambda r: len(r[0].get("rec_texts", []))
+
+    elif args.engine == "rapidocr":
+        from rapidocr_onnxruntime import RapidOCR
+
+        kwargs = {}
+        if args.device == "gpu":
+            kwargs = dict(det_use_cuda=True, cls_use_cuda=True, rec_use_cuda=True)
+        t0 = time.perf_counter()
+        ocr = RapidOCR(**kwargs)
+        init = time.perf_counter() - t0
+        infer = lambda: ocr(img_rgb)
+        count = lambda r: len(r[0]) if r is not None and r[0] is not None else 0
+
     else:
         import easyocr
 
