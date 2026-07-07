@@ -81,3 +81,17 @@ python bench_all.py --gpu-rounds 5 --cpu-rounds 2
 ```
 
 `bench_all.py` 截一次屏存为 `bench_shot.png`，四个组合共用同一张图保证公平；每个组合在独立子进程（`ocr_worker.py`）中运行。仅对比 PaddleOCR 的 CPU/GPU 可直接用 `python bench.py`（单环境即可）。
+
+### 关于 OpenVINO / HPI 加速 CPU 的尝试
+
+PaddleOCR 3.x 理论上支持 `enable_hpi=True` 启用高性能推理（HPI），让模型在 Intel CPU 上走 **OpenVINO** 后端以加速 CPU 推理。实际测试发现：
+
+- Windows 下启用 `enable_hpi=True` 会报错 `Engine 'hpi' is unavailable because dependency 'ultra-infer' is not installed.`
+- `ultra-infer`（PaddleX HPI 插件）目前**没有 Windows 官方预编译包**；PaddleX 文档明确建议在 Windows 上通过 Docker 或 WSL2 使用 HPI。
+
+因此**本仓库未纳入 `paddle-openvino` 对比**。如果你想在 Windows 本地做 OpenVINO 加速，可选路线：
+
+1. **在 WSL2/Docker（Linux）中跑**：安装 `paddlex --install hpi-cpu` 后即可用 `enable_hpi=True`，这是最省事的方案。
+2. **导出 ONNX + OpenVINO Runtime / ONNX Runtime(OpenVINO EP)**：工作量较大，需要把 PaddleOCR 的 det/rec 模型导出为 ONNX，并手写前后处理。
+
+由于当前目标只是本地快速对比，暂保留 4 路对比，不再继续 OpenVINO 分支。

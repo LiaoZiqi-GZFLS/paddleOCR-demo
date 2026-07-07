@@ -26,6 +26,7 @@ There are no automated tests; verification is running the demo and inspecting co
 - **Console UTF-8.** `sys.stdout.reconfigure(encoding="utf-8")` is forced at startup, otherwise Chinese output is mojibake on Windows when piped/redirected.
 - **mss returns BGRA**; the alpha channel is dropped to hand PaddleOCR a BGR array. `monitors[0]` is the all-screens bounding box; `monitors[1+]` are individual displays.
 - The doc-orientation / unwarping / textline-orientation sub-modules are disabled in the `PaddleOCR(...)` call to speed up and avoid extra model downloads.
+- **PaddleOCR HPI / OpenVINO is not available on native Windows.** Enabling `enable_hpi=True` requires `ultra-infer`, which PaddleX only ships prebuilt for Linux. We intentionally do not benchmark `paddle-openvino` here.
 
 ## Result parsing (PaddleOCR 3.x)
 
